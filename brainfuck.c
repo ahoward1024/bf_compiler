@@ -34,9 +34,13 @@
  		- Run built C file
  */
 
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+#include <windows.h>
 
 char bfcommands[4096] = {0};
 int bfcommandLength = 0;
@@ -166,7 +170,7 @@ void printErrorCaret(int count)
 	printf("^");
 }
 
-int checkSyntax(char *fname)
+int checkSyntax(char *fname, char **array, int *length)
 {
 	NFILE bf;
 	bf.name = fname;
@@ -193,16 +197,16 @@ int checkSyntax(char *fname)
  	if((bf.fptr = fopen(fname, "r")))
  	{
  		printf("File Opened: %s\n\n", bf.name);
-
  		
  		printf("File Contents:\n");
- 		printf("--------------\n\n");
+ 		printf("______________\n\n");
+
  		while(!feof(bf.fptr)) {
  			c = fgetc(bf.fptr);
  			int check = checkChar(cmdPtr, c);
 			if(check == 1)
 			{
-				printf("%c", c);
+				printf("%c", c); //DEBUG
 				bfcommands[symbolCount] = c;
 				symbolCount++;
 			}
@@ -224,52 +228,23 @@ int checkSyntax(char *fname)
  	}
  	else
  	{
- 		if(bf.fptr == NULL)
- 		{
- 			printf("Error, no input files\n");
- 		}
- 		else
- 		{
- 			printf("Error, could not open file\n");
- 		}
- 		printf("Compiler exiting with status: failure\n");
  		return EXIT_FAILURE;
  	}
 
- 	if(!status)
- 	{
- 		printf("\n");
- 		printErrorCaret(errorMark);
- 	}
-
- 	printf("\n\n-------------------------\n");
- 	printf("End of file.\n");
- 	printf("Read bytes: %d\n", byteCount);
- 	printf("Read symbols: %d\n", symbolCount);
- 	printf("Skipped bytes: %d\n", skipCount);
- 	printf("Error bytes: %d\n", errorCount);
  	bfcommandLength = byteCount;
- 	if(status)
- 	{
- 		printf("Syntax check completed with status: success\n");
- 	}
- 	else
- 	{
- 		printf("Error: invalid symbol %c at character %d\n", errorCharacter, errorMark);
-		printf("Syntax check completed with status: failure\n");
- 	}
+ 	printf("\n\nbfcommandLength, syntaxcheck %d\n", bfcommandLength);
+
  	return EXIT_SUCCESS;
 }
 
-void build(char *array)
+void build(char *array, int commandLength)
 {
-	printf("Building C file\n");
 	CCMDS ccmds;
 	CCMDS *ccmdPtr = &ccmds;
 	ccmds.ptrInc = "++ptr;";
 	ccmds.ptrDec = "--ptr;";
 	ccmds.inc = "++*ptr;";
-	ccmds.dec = "--*ptr";
+	ccmds.dec = "--*ptr;";
 	ccmds.out = "putchar(*ptr);";
 	ccmds.in = "*ptr=getchar();";
 	ccmds.begin = "while(*ptr) {";
@@ -292,10 +267,12 @@ void build(char *array)
 	if(cfile.fptr = (fopen(cfile.name, "w")))
 	{
 		fprintf(cfile.fptr, "// Generated with the Brainfuck C Compiler\n");
+		fprintf(cfile.fptr, "#include <stdio.h>\n");
 		fprintf(cfile.fptr, "int main() {\n");
 		fprintf(cfile.fptr, "\tchar array[4096] = {0};\n");
 		fprintf(cfile.fptr, "\tchar *ptr = array;\n");
-		for(int i = 0; i < bfcommandLength; i++)
+		printf("bfcommandLength: %d\n", bfcommandLength);
+		for(int i = 0; i < commandLength; i++)
 		{
 			char c = bfcommands[i];
 			char *remap = remapToC(ccmdPtr, bfcmdsPtr, c);
@@ -310,35 +287,67 @@ void build(char *array)
 	}
 }
 
-int compile(char * fname)
-{
-	char gcc[100];
-	strcpy(gcc, "gcc ");
-	strcat(gcc, fname);
-	char *output = " -c -o c.exe";
-	strcat(gcc, output);
-	printf("Compiling c file: %s >> with command:  %s\n", fname, gcc);
-	system(gcc);
-	return 0;
-}
-
-void run(char *fname)
-{
-	char run[100];
-	strcpy(run, "./");
-	strcat(run, fname);
-	system(run);
-	return;
-}
-
 int main(int argc, char **argv)
 {
-	if(checkSyntax("helloworld.bf") == EXIT_SUCCESS)
-	{
-		build(bfcommands);
-		compile("build.c");
-		run("c.exe");
-	}
+	pid_t pid;
+	int processNumber = 0;
+	int syntaxCheckSucessfull = 0;
 
+	
+
+	for (int i = 0; i < 5; ++i)
+	{
+    	pid = fork();
+    	if (pid)
+    	{
+        	int status;
+        	(void)waitpid(pid, &status, 0);
+        	processNumber++;
+    	}
+    	else if (pid == 0)
+    	{
+    		if(processNumber == 0)
+    		{
+    			syntaxCheckSucessfull = checkSyntax("helloworld.bf");
+    		}
+    		else if(processNumber == 1)
+    		{
+    			if(syntaxCheckSucessfull == EXIT_SUCCESS)
+    			{
+    				printf("\n\nSyntax Check: sucessful\n");
+    				int status;
+    				printf("Building C file: build.c\n");
+    				build(bfcommands);
+    			}
+    			else
+    			{
+    				printf("Syntax Check: unsuccessfull! Error in bf file\n");
+    			}
+    		}
+    		else if(processNumber == 3)
+    		{
+    			int status;
+    			(void)waitpid(pid, &status, 0);
+    			printf("Compiling C file: gcc build.c -o build/c.exe\n");
+    			system("gcc build.c -o c.exe");
+    		}
+    		else if(processNumber == 4)
+    		{
+    			int status;
+    			(void)waitpid(pid, &status, 0);
+    			printf("Running C file: ./c.exe\n\n");
+    			system("./c.exe");
+    		}
+        	break;
+    	}
+    	else
+    	{
+        	printf("fork error\n");
+        	exit(1);
+    	}
+    }
+
+
+	
  	return EXIT_SUCCESS;
 }
