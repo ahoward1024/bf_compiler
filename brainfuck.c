@@ -30,6 +30,7 @@
  	Program Flow:
  		- Check bf file's syntax
  		- Build C file if syntax check is sucessful
+ 		- Compress C commands
  		- Compile built C file
  		- Run built C file
  */
@@ -170,7 +171,7 @@ void printErrorCaret(int count)
 	printf("^");
 }
 
-int checkSyntax(char *fname, char **array, int *length)
+int checkSyntax(char *fname)
 {
 	NFILE bf;
 	bf.name = fname;
@@ -232,12 +233,11 @@ int checkSyntax(char *fname, char **array, int *length)
  	}
 
  	bfcommandLength = byteCount;
- 	printf("\n\nbfcommandLength, syntaxcheck %d\n", bfcommandLength);
 
  	return EXIT_SUCCESS;
 }
 
-void build(char *array, int commandLength)
+int build(char *array)
 {
 	CCMDS ccmds;
 	CCMDS *ccmdPtr = &ccmds;
@@ -264,6 +264,8 @@ void build(char *array, int commandLength)
 	NFILE cfile;
 	cfile.name = "build.c";
 
+	int tabdepth = 1;
+
 	if(cfile.fptr = (fopen(cfile.name, "w")))
 	{
 		fprintf(cfile.fptr, "// Generated with the Brainfuck C Compiler\n");
@@ -271,31 +273,83 @@ void build(char *array, int commandLength)
 		fprintf(cfile.fptr, "int main() {\n");
 		fprintf(cfile.fptr, "\tchar array[4096] = {0};\n");
 		fprintf(cfile.fptr, "\tchar *ptr = array;\n");
-		printf("bfcommandLength: %d\n", bfcommandLength);
-		for(int i = 0; i < commandLength; i++)
+
+		for(int i = 0; i < bfcommandLength; i++)
 		{
 			char c = bfcommands[i];
 			char *remap = remapToC(ccmdPtr, bfcmdsPtr, c);
 			if(strcmp(remap, "NULL"))
 			{
-				fprintf(cfile.fptr, "\t%s", remap);
+				if(!strcmp(remap, ccmds.end))
+				{
+					tabdepth--;
+				}
+
+				for(int i = 0; i < tabdepth; i++)
+				{
+					fprintf(cfile.fptr, "\t");
+				}
+
+				fprintf(cfile.fptr, "%s", remap);
 				fprintf(cfile.fptr, "\n");
+
+				if(!strcmp(remap, ccmds.begin))
+				{
+					tabdepth++;
+				}
 			}
 		}
 		fprintf(cfile.fptr, "\treturn 0;\n");
 		fprintf(cfile.fptr, "}");
 	}
+	else
+	{
+		return EXIT_FAILURE;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+//TODO compress
+int compress()
+{
+	return EXIT_SUCCESS;
+}
+
+//TODO compile
+int compile()
+{
+	
+	return EXIT_SUCCESS;
+}
+
+//TODO run
+void run()
+{
+	
 }
 
 int main(int argc, char **argv)
 {
-	pid_t pid;
-	int processNumber = 0;
-	int syntaxCheckSucessfull = 0;
+	if(checkSyntax("helloworld.bf") == EXIT_SUCCESS)
+	{
+		printf("\n\nBuilding %d lines of C commands.\n", bfcommandLength);
+		if(build(bfcommands) == EXIT_SUCCESS)
+		{
+			//TODO(alex) Compress C file
+			//TODO(alex) Fork to compile
+			//TODO(alex) Wait until compile sucess and Run
+		}
+	}
+	else
+	{
+		printf("Syntax check failed!\n");
+		return EXIT_FAILURE;
+	}
 
-	
 
-	for (int i = 0; i < 5; ++i)
+	//Bad fork code
+	/*for (int i = 0; i < 5; ++i)
 	{
     	pid = fork();
     	if (pid)
@@ -345,7 +399,7 @@ int main(int argc, char **argv)
         	printf("fork error\n");
         	exit(1);
     	}
-    }
+    }*/
 
 
 	
