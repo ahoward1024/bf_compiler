@@ -26,6 +26,23 @@
  *
  */
 
+/*
+
+brainfuck            |      C
+
+(Program Start)	     |      char array[infinitely large size] = {0};
+					 |		char *ptr=array;
+>					 |		++ptr;
+<					 |		--ptr;
++					 |		++*ptr;
+-					 |		--*ptr;
+.					 |		putchar(*ptr);
+,					 |		*ptr=getchar();
+[					 |		while (*ptr) {
+]					 |		}
+
+*/
+
  /*
  	Program Flow:
  		- Check bf file's syntax
@@ -43,7 +60,7 @@
 #include <unistd.h>
 #include <windows.h>
 
-char bfcommands[4096] = {0};
+char bfcommands[536870912] = {0}; //512MB
 int bfcommandLength = 0;
 
 typedef struct
@@ -125,10 +142,32 @@ int checkChar(BFCMDS *p, char c)
 	return 0;
 }
 
-char* remapToC(CCMDS *cp, BFCMDS *bp, char c)
+char* convertInt(int val, int base){
+	
+	static char buf[32] = {0};
+	
+	int i = 30;
+	
+	for(; val && i ; --i, val /= base)
+	
+		buf[i] = "0123456789abcdef"[val % base];
+	
+	return &buf[i+1];
+	
+}
+
+char* remapToC(CCMDS *cp, BFCMDS *bp, char c, int add)
 {
-	if(c == (bp->ptrInc))
+	printf("Remap: c: %c\n", c);
+	if(c == '\0')
 	{
+		return "NULL";
+	}
+	else if(c == (bp->ptrInc))
+	{	
+		char *i = convertInt(add, 10);
+		char *rmap = cp->ptrInc;
+		
 		return cp->ptrInc;
 	}
 	else if (c == (bp->ptrDec))
@@ -162,22 +201,11 @@ char* remapToC(CCMDS *cp, BFCMDS *bp, char c)
 	return "NULL";
 }
 
-void printErrorCaret(int count)
-{
-	for(int i = 0; i < count; i++)
-	{
-		printf(" ");
-	}
-	printf("^");
-}
-
 int checkSyntax(char *fname)
 {
 	NFILE bf;
 	bf.name = fname;
-	int status = 1;
-	int errorMark = 0;
-	char errorCharacter = '\0';
+
 	BFCMDS bfcmds;
 	BFCMDS *cmdPtr = &bfcmds;
 	bfcmds.ptrInc = '>';
@@ -193,7 +221,6 @@ int checkSyntax(char *fname)
  	int byteCount = 0;
  	int symbolCount = 0;
  	int skipCount = 0;
- 	int errorCount = 0;
 
  	if((bf.fptr = fopen(fname, "r")))
  	{
@@ -218,10 +245,9 @@ int checkSyntax(char *fname)
 			else
 			{
 				printf("%c", c);
-				errorMark = byteCount;
-				errorCharacter = c;
-				status = 0;
-				errorCount++;
+				printf("\n\n[Error: unknown symbol: %c : at byte: %d]\n", c, byteCount);
+				printf("Compiler exiting.\n");
+				return EXIT_FAILURE;
 			}
 			byteCount++;
  		}
@@ -229,6 +255,8 @@ int checkSyntax(char *fname)
  	}
  	else
  	{
+ 		printf("\n\n[Error: could not open file %s]\n", bf.name);
+ 		printf("Compiler exiting.\n");
  		return EXIT_FAILURE;
  	}
 
@@ -237,14 +265,15 @@ int checkSyntax(char *fname)
  	return EXIT_SUCCESS;
 }
 
+//TODO(alex) compress
 int build(char *array)
 {
 	CCMDS ccmds;
 	CCMDS *ccmdPtr = &ccmds;
-	ccmds.ptrInc = "++ptr;";
-	ccmds.ptrDec = "--ptr;";
+	ccmds.ptrInc = "ptr+=%;";
+	ccmds.ptrDec = "ptr-=;";
 	ccmds.inc = "++*ptr;";
-	ccmds.dec = "--*ptr;";
+	ccmds.dec = "++*ptr;";
 	ccmds.out = "putchar(*ptr);";
 	ccmds.in = "*ptr=getchar();";
 	ccmds.begin = "while(*ptr) {";
@@ -265,19 +294,42 @@ int build(char *array)
 	cfile.name = "build.c";
 
 	int tabdepth = 1;
+	int add = 1;
 
 	if(cfile.fptr = (fopen(cfile.name, "w")))
 	{
+		printf("Building file : %s\n", cfile.name);
 		fprintf(cfile.fptr, "// Generated with the Brainfuck C Compiler\n");
 		fprintf(cfile.fptr, "#include <stdio.h>\n");
 		fprintf(cfile.fptr, "int main() {\n");
-		fprintf(cfile.fptr, "\tchar array[4096] = {0};\n");
+		fprintf(cfile.fptr, "\tchar array[536870912] = {0}; //512MB\n");
 		fprintf(cfile.fptr, "\tchar *ptr = array;\n");
 
+		printf("bfcommandLength: %d\n", bfcommandLength);
 		for(int i = 0; i < bfcommandLength; i++)
 		{
 			char c = bfcommands[i];
-			char *remap = remapToC(ccmdPtr, bfcmdsPtr, c);
+			printf("char = %c\n", c);
+			//If the current character is +
+			//Keep moving down the array to chain adds together
+			while(c == '>')
+			{
+				char nextC;
+				if(i < bfcommandLength-1)
+				{
+					add++;
+					i++;
+					c = bfcommands[i];
+				}
+			}
+			c = bfcommands[i-1];
+
+			printf("add: %d\n", add);
+			char *remap;
+			remap = remapToC(ccmdPtr, bfcmdsPtr, c, add);
+			add = 1; //Reset the add counter
+			printf("REMAP RESULT: %s\n", remap);
+
 			if(strcmp(remap, "NULL"))
 			{
 				if(!strcmp(remap, ccmds.end))
@@ -310,12 +362,6 @@ int build(char *array)
 	return EXIT_SUCCESS;
 }
 
-//TODO compress
-int compress()
-{
-	return EXIT_SUCCESS;
-}
-
 //TODO compile
 int compile()
 {
@@ -331,7 +377,7 @@ void run()
 
 int main(int argc, char **argv)
 {
-	if(checkSyntax("helloworld.bf") == EXIT_SUCCESS)
+	if(checkSyntax("test2.bf") == EXIT_SUCCESS)
 	{
 		printf("\n\nBuilding %d lines of C commands.\n", bfcommandLength);
 		if(build(bfcommands) == EXIT_SUCCESS)
@@ -346,62 +392,6 @@ int main(int argc, char **argv)
 		printf("Syntax check failed!\n");
 		return EXIT_FAILURE;
 	}
-
-
-	//Bad fork code
-	/*for (int i = 0; i < 5; ++i)
-	{
-    	pid = fork();
-    	if (pid)
-    	{
-        	int status;
-        	(void)waitpid(pid, &status, 0);
-        	processNumber++;
-    	}
-    	else if (pid == 0)
-    	{
-    		if(processNumber == 0)
-    		{
-    			syntaxCheckSucessfull = checkSyntax("helloworld.bf");
-    		}
-    		else if(processNumber == 1)
-    		{
-    			if(syntaxCheckSucessfull == EXIT_SUCCESS)
-    			{
-    				printf("\n\nSyntax Check: sucessful\n");
-    				int status;
-    				printf("Building C file: build.c\n");
-    				build(bfcommands);
-    			}
-    			else
-    			{
-    				printf("Syntax Check: unsuccessfull! Error in bf file\n");
-    			}
-    		}
-    		else if(processNumber == 3)
-    		{
-    			int status;
-    			(void)waitpid(pid, &status, 0);
-    			printf("Compiling C file: gcc build.c -o build/c.exe\n");
-    			system("gcc build.c -o c.exe");
-    		}
-    		else if(processNumber == 4)
-    		{
-    			int status;
-    			(void)waitpid(pid, &status, 0);
-    			printf("Running C file: ./c.exe\n\n");
-    			system("./c.exe");
-    		}
-        	break;
-    	}
-    	else
-    	{
-        	printf("fork error\n");
-        	exit(1);
-    	}
-    }*/
-
-
 	
  	return EXIT_SUCCESS;
 }
