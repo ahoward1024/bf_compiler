@@ -59,6 +59,7 @@ brainfuck            |      C
 #include <string.h>
 #include <unistd.h>
 #include <windows.h>
+#include <math.h>
 
 char bfcommands[536870912] = {0}; //512MB
 int bfcommandLength = 0;
@@ -149,56 +150,68 @@ char* convertInt(int val, int base){
 	int i = 30;
 	
 	for(; val && i ; --i, val /= base)
-	
+	{
 		buf[i] = "0123456789abcdef"[val % base];
+	}
 	
 	return &buf[i+1];
 	
 }
 
-char* remapToC(CCMDS *cp, BFCMDS *bp, char c, int add)
+int numdigits(int n)
 {
-	printf("Remap: c: %c\n", c);
-	if(c == '\0')
-	{
-		return "NULL";
-	}
-	else if(c == (bp->ptrInc))
+	return log10(n) + 1;
+}
+
+void remapToC(CCMDS *cp, BFCMDS *bp, char c, int number, char *rmap)
+{
+	if(c == (bp->ptrInc))
 	{	
-		char *i = convertInt(add, 10);
-		char *rmap = cp->ptrInc;
-		
-		return cp->ptrInc;
+		char *i = convertInt(number, 10);
+		strcpy(rmap, cp->ptrInc);
+		strcat(rmap, i);
+		strcat(rmap, ";");
+		return;
 	}
 	else if (c == (bp->ptrDec))
 	{
-		return cp->ptrDec;
+		char *i = convertInt(number, 10);
+		strcpy(rmap, cp->ptrDec);
+		strcat(rmap, i);
+		strcat(rmap, ";");
+		return;
 	}
 	else if(c == (bp->inc))
 	{
-		return cp->inc;
+		strcpy(rmap, cp->inc);
+		return;
 	}
 	else if(c == (bp->dec))
 	{
-		return cp->dec;
+		strcpy(rmap, cp->dec);
+		return;
 	}
 	else if(c == (bp->out))
 	{
-		return cp->out;
+		strcpy(rmap, cp->out);
+		return;
 	}
 	else if(c == (bp->in))
 	{
-		return cp->in;
+		strcpy(rmap, cp->in);
+		return;
 	}
 	else if(c == (bp->begin))
 	{
-		return cp->begin;
+		strcpy(rmap, cp->begin);
+		return;
 	}
 	else if(c == (bp->end))
 	{
-		return cp->end;
+		strcpy(rmap, cp->end);
+		return;
 	}
-	return "NULL";
+	rmap =  "NULL";
 }
 
 int checkSyntax(char *fname)
@@ -216,22 +229,23 @@ int checkSyntax(char *fname)
 	bfcmds.in = ',';
 	bfcmds.begin = '[';
 	bfcmds.end = ']';
-	
- 	char c = '\0';
- 	int byteCount = 0;
- 	int symbolCount = 0;
- 	int skipCount = 0;
 
- 	if((bf.fptr = fopen(fname, "r")))
- 	{
- 		printf("File Opened: %s\n\n", bf.name);
- 		
- 		printf("File Contents:\n");
- 		printf("______________\n\n");
+	char c = '\0';
+	int byteCount = 0;
+	int symbolCount = 0;
+	int skipCount = 0;
 
- 		while(!feof(bf.fptr)) {
- 			c = fgetc(bf.fptr);
- 			int check = checkChar(cmdPtr, c);
+	if((bf.fptr = fopen(fname, "r")))
+	{
+		printf("File Opened: %s\n\n", bf.name);
+
+		printf("File Contents:\n");
+		printf("______________\n\n");
+
+		while(!feof(bf.fptr))
+		{
+			c = fgetc(bf.fptr);
+			int check = checkChar(cmdPtr, c);
 			if(check == 1)
 			{
 				printf("%c", c); //DEBUG
@@ -250,28 +264,27 @@ int checkSyntax(char *fname)
 				return EXIT_FAILURE;
 			}
 			byteCount++;
- 		}
- 		fclose(bf.fptr);
- 	}
- 	else
- 	{
- 		printf("\n\n[Error: could not open file %s]\n", bf.name);
- 		printf("Compiler exiting.\n");
- 		return EXIT_FAILURE;
- 	}
+		}
+		fclose(bf.fptr);
+	}
+	else
+	{
+		printf("\n\n[Error: could not open file %s]\n", bf.name);
+		printf("Compiler exiting.\n");
+		return EXIT_FAILURE;
+	}
 
- 	bfcommandLength = byteCount;
+	bfcommandLength = byteCount;
 
- 	return EXIT_SUCCESS;
+	return EXIT_SUCCESS;
 }
 
-//TODO(alex) compress
 int build(char *array)
 {
 	CCMDS ccmds;
 	CCMDS *ccmdPtr = &ccmds;
-	ccmds.ptrInc = "ptr+=%;";
-	ccmds.ptrDec = "ptr-=;";
+	ccmds.ptrInc = "ptr+=";
+	ccmds.ptrDec = "ptr-=";
 	ccmds.inc = "++*ptr;";
 	ccmds.dec = "++*ptr;";
 	ccmds.out = "putchar(*ptr);";
@@ -293,8 +306,8 @@ int build(char *array)
 	NFILE cfile;
 	cfile.name = "build.c";
 
-	int tabdepth = 1;
-	int add = 1;
+	int tabdepth = 1; //Always starts at 1
+	int number = 0; //Number to put on increments or decrements
 
 	if(cfile.fptr = (fopen(cfile.name, "w")))
 	{
@@ -303,36 +316,49 @@ int build(char *array)
 		fprintf(cfile.fptr, "#include <stdio.h>\n");
 		fprintf(cfile.fptr, "int main() {\n");
 		fprintf(cfile.fptr, "\tchar array[536870912] = {0}; //512MB\n");
-		fprintf(cfile.fptr, "\tchar *ptr = array;\n");
+		fprintf(cfile.fptr, "\tchar *ptr = array;\n\n");
+		fprintf(cfile.fptr, "\t//Beginning of code\n\n");
 
 		printf("bfcommandLength: %d\n", bfcommandLength);
-		for(int i = 0; i < bfcommandLength; i++)
+
+		for(int i = 0; i < bfcommandLength-1; i++)
 		{
 			char c = bfcommands[i];
-			printf("char = %c\n", c);
 			//If the current character is +
 			//Keep moving down the array to chain adds together
-			while(c == '>')
-			{
-				char nextC;
-				if(i < bfcommandLength-1)
-				{
-					add++;
-					i++;
-					c = bfcommands[i];
-				}
-			}
-			c = bfcommands[i-1];
 
-			printf("add: %d\n", add);
-			char *remap;
-			remap = remapToC(ccmdPtr, bfcmdsPtr, c, add);
-			add = 1; //Reset the add counter
-			printf("REMAP RESULT: %s\n", remap);
+			if(c == '>')
+			{
+				while(c == '>')
+				{
+					if(i < bfcommandLength)
+					{
+						++number;
+						c = bfcommands[++i];
+					}
+				}
+				c = bfcommands[--i];
+			}
+			else if(c == '<')
+			{
+				while(c == '<')
+				{
+					if(i < bfcommandLength)
+					{
+						++number;
+						c = bfcommands[++i];
+					}
+				}
+				c = bfcommands[--i];
+			}
+
+			char remap[100];
+			remapToC(ccmdPtr, bfcmdsPtr, c, number, (char *)remap);
+			number = 0; //Reset the add counter
 
 			if(strcmp(remap, "NULL"))
 			{
-				if(!strcmp(remap, ccmds.end))
+				if(!strcmp(remap, ccmds.end) && tabdepth != 1)
 				{
 					tabdepth--;
 				}
@@ -344,18 +370,21 @@ int build(char *array)
 
 				fprintf(cfile.fptr, "%s", remap);
 				fprintf(cfile.fptr, "\n");
+			}
 
-				if(!strcmp(remap, ccmds.begin))
-				{
-					tabdepth++;
-				}
+			if(!strcmp(remap, ccmds.begin))
+			{
+				tabdepth++;
 			}
 		}
-		fprintf(cfile.fptr, "\treturn 0;\n");
+		fprintf(cfile.fptr, "\n\t//End of code\n");
+		fprintf(cfile.fptr, "\n\treturn 0;\n");
 		fprintf(cfile.fptr, "}");
 	}
 	else
 	{
+		printf("[Error: build failed! Could not open file\n");
+		printf("Compiler exiting.\n");
 		return EXIT_FAILURE;
 	}
 
@@ -377,12 +406,11 @@ void run()
 
 int main(int argc, char **argv)
 {
-	if(checkSyntax("test2.bf") == EXIT_SUCCESS)
+	if(checkSyntax("helloworld.bf") == EXIT_SUCCESS)
 	{
 		printf("\n\nBuilding %d lines of C commands.\n", bfcommandLength);
 		if(build(bfcommands) == EXIT_SUCCESS)
 		{
-			//TODO(alex) Compress C file
 			//TODO(alex) Fork to compile
 			//TODO(alex) Wait until compile sucess and Run
 		}
@@ -393,5 +421,5 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 	
- 	return EXIT_SUCCESS;
+	return EXIT_SUCCESS;
 }
