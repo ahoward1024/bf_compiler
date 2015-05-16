@@ -1,4 +1,4 @@
-//////// Brainfuck ////////
+//////// Brainfuck Compiler////////
 /*  Instructions
  * > increment the data pointer to the next cell to the right
  * < decrement the data point to the next cell on the left
@@ -28,18 +28,18 @@
 
 /*
 
-brainfuck            |      C
+brainfuck 			|		C
 
-(Program Start)	     |      char array[infinitely large size] = {0};
-					 |		char *ptr=array;
->					 |		++ptr;
-<					 |		--ptr;
-+					 |		++*ptr;
--					 |		--*ptr;
-.					 |		putchar(*ptr);
-,					 |		*ptr=getchar();
-[					 |		while (*ptr) {
-]					 |		}
+(Program Start)	    |		char array[infinitely large size] = {0};
+					|		char *ptr=array;
+>					|		++ptr;
+<					|		--ptr;
++					|		++*ptr;
+-					|		--*ptr;
+.					|		putchar(*ptr);
+,					|		*ptr=getchar();
+[					|		while (*ptr) {
+]					|		}
 
 */
 
@@ -67,28 +67,29 @@ typedef struct
 	char *name;
 } NFILE;
 
+//IMPORTANT: This should really change
 typedef struct
 {
-	char ptrInc; //>
-	char ptrDec; //<
-	char inc; //+
-	char dec; //-
-	char out; //.
-	char in; //,
-	char begin; //[
-	char end; //]
+	char ptrInc;	// >
+	char ptrDec;	// <
+	char inc; 		// +
+	char dec; 		// -
+	char out; 		// .
+	char in; 		// ,
+	char begin; 	// [
+	char end; 		// ]
 } BFCMDS;
 
 typedef struct
 {
-	char *ptrInc;
-	char *ptrDec;
-	char *inc;
-	char *dec;
-	char *out;
-	char *in;
-	char *begin;
-	char *end;
+	char *ptrInc;	// ++ptr;
+	char *ptrDec;	// --ptr;
+	char *inc;		// ++*ptr;
+	char *dec;		// --*ptr;
+	char *out;		// putchar(*ptr);
+	char *in;		// *ptr=getchar();
+	char *begin;	// while(*ptr) {
+	char *end;		// }
 } CCMDS;
 
 int checkChar(BFCMDS *p, char c)
@@ -431,18 +432,16 @@ void run()
 
 int main(int argc, char **argv)
 {
-	char bfFileName[] = "helloworld.bf";
-	char *bfFilePtr = bfFileName;
+	char *bfFileName = "helloworld.bf";
 	char cbuildFileName[] = "build.c";
-	char *cbuildPtr = cbuildFileName;
 	char bfcommands[1048576] = {0}; //1MB
 	char *bfcPtr = bfcommands;
 	int bfcommandLength = 0;
 
-	if(checkSyntax(bfFilePtr, bfcPtr, &bfcommandLength) == EXIT_SUCCESS)
+	if(checkSyntax(bfFileName, bfcPtr, &bfcommandLength) == EXIT_SUCCESS)
 	{
 		printf("\n\nBuilding %d lines of C commands.\n", bfcommandLength);
-		if(build(bfcPtr, &bfcommandLength, cbuildPtr) == EXIT_SUCCESS)
+		if(build(bfcPtr, &bfcommandLength, cbuildFileName) == EXIT_SUCCESS)
 		{
 			//TODO(alex) Fork to compile
 			//TODO(alex) Wait until compile sucess and Run
