@@ -61,9 +61,6 @@ brainfuck            |      C
 #include <windows.h>
 #include <math.h>
 
-char bfcommands[536870912] = {0}; //512MB
-int bfcommandLength = 0;
-
 typedef struct
 {
 	FILE *fptr;
@@ -163,6 +160,99 @@ int numdigits(int n)
 	return log10(n) + 1;
 }
 
+int checkSyntax(char *fname, char *array, int *length)
+{
+	NFILE bf;
+	bf.name = fname;
+
+	BFCMDS bfcmds;
+	BFCMDS *cmdPtr = &bfcmds;
+	bfcmds.ptrInc = '>';
+	bfcmds.ptrDec = '<';
+	bfcmds.inc = '+';
+	bfcmds.dec = '-';
+	bfcmds.out = '.';
+	bfcmds.in = ',';
+	bfcmds.begin = '[';
+	bfcmds.end = ']';
+
+	char c = '\0';
+	int byteCount = 0;
+	int symbolCount = 0;
+	int skipCount = 0;
+	int openBraceCount = 0, closedBraceCount = 0;
+
+	if((bf.fptr = fopen(fname, "r")))
+	{
+		printf("File Opened: %s\n\n", bf.name);
+
+		printf("File Contents:\n");
+		printf("______________\n\n");
+
+		while(!feof(bf.fptr))
+		{
+			c = fgetc(bf.fptr);
+			int check = checkChar(cmdPtr, c);
+			if(check == 1)
+			{
+				printf("%c", c); //DEBUG
+				if(c == '[')
+				{
+					++openBraceCount;
+				}
+				else if(c == ']')
+				{
+					++closedBraceCount;
+				}
+
+				array[symbolCount] = c;
+				symbolCount++;
+			}
+			else if(check == 2)
+			{
+				skipCount++;
+			}
+			else
+			{
+				printf("%c", c);
+				printf("\n\n[Error: unknown symbol: %c : at byte: %d]\n", c, byteCount);
+				printf("Compiler exiting.\n");
+				return EXIT_FAILURE;
+			}
+			byteCount++;
+		}
+		fclose(bf.fptr);
+	}
+	else
+	{
+		printf("\n\n[Error: could not open file %s]\n", bf.name);
+		printf("Compiler exiting.\n");
+		return EXIT_FAILURE;
+	}
+
+	if(closedBraceCount != openBraceCount)
+	{
+		printf("\n\n[Error: braces are not balanced. ");
+		if(closedBraceCount > openBraceCount)
+		{
+			int i = closedBraceCount - openBraceCount;
+			printf("Expected %d more opening brace(s).]\n", i);
+		}
+		//NOTE(alex) Do we actually want to ask about open braces?
+		/*else if(openBraceCount > closedBraceCount)
+		{
+			int i = openBraceCount - closedBraceCount;
+			printf("Expected %d more closing brace(s).]", i);
+		}*/
+		printf("Compiler exiting\n");
+		return EXIT_FAILURE;
+	}
+
+	*length = byteCount;
+
+	return EXIT_SUCCESS;
+}
+
 void remapToC(CCMDS *cp, BFCMDS *bp, char c, int number, char *rmap)
 {
 	if(c == (bp->ptrInc))
@@ -214,72 +304,7 @@ void remapToC(CCMDS *cp, BFCMDS *bp, char c, int number, char *rmap)
 	rmap =  "NULL";
 }
 
-int checkSyntax(char *fname)
-{
-	NFILE bf;
-	bf.name = fname;
-
-	BFCMDS bfcmds;
-	BFCMDS *cmdPtr = &bfcmds;
-	bfcmds.ptrInc = '>';
-	bfcmds.ptrDec = '<';
-	bfcmds.inc = '+';
-	bfcmds.dec = '-';
-	bfcmds.out = '.';
-	bfcmds.in = ',';
-	bfcmds.begin = '[';
-	bfcmds.end = ']';
-
-	char c = '\0';
-	int byteCount = 0;
-	int symbolCount = 0;
-	int skipCount = 0;
-
-	if((bf.fptr = fopen(fname, "r")))
-	{
-		printf("File Opened: %s\n\n", bf.name);
-
-		printf("File Contents:\n");
-		printf("______________\n\n");
-
-		while(!feof(bf.fptr))
-		{
-			c = fgetc(bf.fptr);
-			int check = checkChar(cmdPtr, c);
-			if(check == 1)
-			{
-				printf("%c", c); //DEBUG
-				bfcommands[symbolCount] = c;
-				symbolCount++;
-			}
-			else if(check == 2)
-			{
-				skipCount++;
-			}
-			else
-			{
-				printf("%c", c);
-				printf("\n\n[Error: unknown symbol: %c : at byte: %d]\n", c, byteCount);
-				printf("Compiler exiting.\n");
-				return EXIT_FAILURE;
-			}
-			byteCount++;
-		}
-		fclose(bf.fptr);
-	}
-	else
-	{
-		printf("\n\n[Error: could not open file %s]\n", bf.name);
-		printf("Compiler exiting.\n");
-		return EXIT_FAILURE;
-	}
-
-	bfcommandLength = byteCount;
-
-	return EXIT_SUCCESS;
-}
-
-int build(char *array)
+int build(char *array, int *length, char *fname)
 {
 	CCMDS ccmds;
 	CCMDS *ccmdPtr = &ccmds;
@@ -304,7 +329,7 @@ int build(char *array)
 	bfcmds.end = ']';
 
 	NFILE cfile;
-	cfile.name = "build.c";
+	cfile.name = fname;
 
 	int tabdepth = 1; //Always starts at 1
 	int number = 0; //Number to put on increments or decrements
@@ -315,15 +340,15 @@ int build(char *array)
 		fprintf(cfile.fptr, "// Generated with the Brainfuck C Compiler\n");
 		fprintf(cfile.fptr, "#include <stdio.h>\n");
 		fprintf(cfile.fptr, "int main() {\n");
-		fprintf(cfile.fptr, "\tchar array[536870912] = {0}; //512MB\n");
+		fprintf(cfile.fptr, "\tchar array[%d] = {0}; //512MB\n", length);
 		fprintf(cfile.fptr, "\tchar *ptr = array;\n\n");
 		fprintf(cfile.fptr, "\t//Beginning of code\n\n");
 
-		printf("bfcommandLength: %d\n", bfcommandLength);
+		printf("bfcommandLength: %d\n", length);
 
-		for(int i = 0; i < bfcommandLength-1; i++)
+		for(int i = 0; i < (*length)-1; i++)
 		{
-			char c = bfcommands[i];
+			char c = array[i];
 			//If the current character is +
 			//Keep moving down the array to chain adds together
 
@@ -331,25 +356,25 @@ int build(char *array)
 			{
 				while(c == '>')
 				{
-					if(i < bfcommandLength)
+					if(i < (*length))
 					{
 						++number;
-						c = bfcommands[++i];
+						c = array[++i];
 					}
 				}
-				c = bfcommands[--i];
+				c = array[--i];
 			}
 			else if(c == '<')
 			{
 				while(c == '<')
 				{
-					if(i < bfcommandLength)
+					if(i < (*length))
 					{
 						++number;
-						c = bfcommands[++i];
+						c = array[++i];
 					}
 				}
-				c = bfcommands[--i];
+				c = array[--i];
 			}
 
 			char remap[100];
@@ -406,10 +431,18 @@ void run()
 
 int main(int argc, char **argv)
 {
-	if(checkSyntax("helloworld.bf") == EXIT_SUCCESS)
+	char bfFileName[] = "helloworld.bf";
+	char *bfFilePtr = bfFileName;
+	char cbuildFileName[] = "build.c";
+	char *cbuildPtr = cbuildFileName;
+	char bfcommands[1048576] = {0}; //1MB
+	char *bfcPtr = bfcommands;
+	int bfcommandLength = 0;
+
+	if(checkSyntax(bfFilePtr, bfcPtr, &bfcommandLength) == EXIT_SUCCESS)
 	{
 		printf("\n\nBuilding %d lines of C commands.\n", bfcommandLength);
-		if(build(bfcommands) == EXIT_SUCCESS)
+		if(build(bfcPtr, &bfcommandLength, cbuildPtr) == EXIT_SUCCESS)
 		{
 			//TODO(alex) Fork to compile
 			//TODO(alex) Wait until compile sucess and Run
