@@ -1,7 +1,7 @@
 // Generated with the Brainfuck C Compiler
 #include <stdio.h>
-int main() {
-	char array[1231532] = {0}; //512MB
+int main(int argc, char **argv) {
+	char array[107] = {0}; //1MB maximum (1048576 bytes)
 	char *ptr = array;
 
 	//Beginning of code

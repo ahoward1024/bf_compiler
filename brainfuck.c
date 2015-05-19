@@ -305,7 +305,7 @@ void remapToC(CCMDS *cp, BFCMDS *bp, char c, int number, char *rmap)
 	rmap =  "NULL";
 }
 
-int build(char *array, int *length, char *fname)
+int build(char *array, int length, char *fname)
 {
 	CCMDS ccmds;
 	CCMDS *ccmdPtr = &ccmds;
@@ -340,14 +340,14 @@ int build(char *array, int *length, char *fname)
 		printf("Building file : %s\n", cfile.name);
 		fprintf(cfile.fptr, "// Generated with the Brainfuck C Compiler\n");
 		fprintf(cfile.fptr, "#include <stdio.h>\n");
-		fprintf(cfile.fptr, "int main() {\n");
-		fprintf(cfile.fptr, "\tchar array[%d] = {0}; //512MB\n", length);
+		fprintf(cfile.fptr, "int main(int argc, char **argv) {\n");
+		fprintf(cfile.fptr, "\tchar array[%d] = {0}; //1MB maximum (1048576 bytes)\n", length);
 		fprintf(cfile.fptr, "\tchar *ptr = array;\n\n");
 		fprintf(cfile.fptr, "\t//Beginning of code\n\n");
 
 		printf("bfcommandLength: %d\n", length);
 
-		for(int i = 0; i < (*length)-1; i++)
+		for(int i = 0; i < length-1; i++)
 		{
 			char c = array[i];
 			//If the current character is +
@@ -357,7 +357,7 @@ int build(char *array, int *length, char *fname)
 			{
 				while(c == '>')
 				{
-					if(i < (*length))
+					if(i < length)
 					{
 						++number;
 						c = array[++i];
@@ -369,7 +369,7 @@ int build(char *array, int *length, char *fname)
 			{
 				while(c == '<')
 				{
-					if(i < (*length))
+					if(i < length)
 					{
 						++number;
 						c = array[++i];
@@ -441,9 +441,10 @@ int main(int argc, char **argv)
 	if(checkSyntax(bfFileName, bfcPtr, &bfcommandLength) == EXIT_SUCCESS)
 	{
 		printf("\n\nBuilding %d lines of C commands.\n", bfcommandLength);
-		if(build(bfcPtr, &bfcommandLength, cbuildFileName) == EXIT_SUCCESS)
+		if(build(bfcPtr, bfcommandLength, cbuildFileName) == EXIT_SUCCESS)
 		{
 			//TODO(alex) Fork to compile
+			system("gcc build.c -o c.exe");
 			//TODO(alex) Wait until compile sucess and Run
 		}
 	}
