@@ -28,18 +28,18 @@
 
 /*
 
-brainfuck 			|		C
+Brainfuck  		|		C
 
-(Program Start)	    |		char array[infinitely large size] = {0};
-					|		char *ptr=array;
->					|		++ptr;
-<					|		--ptr;
-+					|		++*ptr;
--					|		--*ptr;
-.					|		putchar(*ptr);
-,					|		*ptr=getchar();
-[					|		while (*ptr) {
-]					|		}
+(Program Start)	|		char array[infinitely large size] = {0};
+				|		char *ptr=array;
+>				|		++ptr;
+<				|		--ptr;
++				|		++*ptr;
+-				|		--*ptr;
+.				|		putchar(*ptr);
+,				|		*ptr=getchar();
+[				|		while (*ptr) {
+]				|		}
 
 */
 
@@ -52,14 +52,9 @@ brainfuck 			|		C
  		- Run built C file
  */
 
-#include <sys/types.h>
-#include <sys/wait.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-#include <windows.h>
-#include <math.h>
 
 typedef struct
 {
@@ -67,115 +62,30 @@ typedef struct
 	char *name;
 } NFILE;
 
-//IMPORTANT: This should really change
-typedef struct
+int checkChar(char c)
 {
-	char ptrInc;	// >
-	char ptrDec;	// <
-	char inc; 		// +
-	char dec; 		// -
-	char out; 		// .
-	char in; 		// ,
-	char begin; 	// [
-	char end; 		// ]
-} BFCMDS;
 
-typedef struct
-{
-	char *ptrInc;	// ++ptr;
-	char *ptrDec;	// --ptr;
-	char *inc;		// ++*ptr;
-	char *dec;		// --*ptr;
-	char *out;		// putchar(*ptr);
-	char *in;		// *ptr=getchar();
-	char *begin;	// while(*ptr) {
-	char *end;		// }
-} CCMDS;
-
-int checkChar(BFCMDS *p, char c)
-{
-	if(c == (p->ptrInc))
+	switch(c)
 	{
-		return 1;
+		case '>' : return 1;
+		case '<' : return 1;
+		case '+' : return 1;
+		case '-' : return 1;
+		case '.' : return 1;
+		case ',' : return 1;
+		case '[' : return 1;
+		case ']' : return 1;
+		case EOF : return 2;
+		case '\n' : return 2;
+		case '\0' : return 2;
+		default : return 0;
 	}
-	else if (c == (p->ptrDec))
-	{
-		return 1;
-	}
-	else if(c == (p->inc))
-	{
-		return 1;
-	}
-	else if(c == (p->dec))
-	{
-		return 1;
-	}
-	else if(c == (p->out))
-	{
-		return 1;
-	}
-	else if(c == (p->in))
-	{
-		return 1;
-	}
-	else if(c == (p->begin))
-	{
-		return 1;
-	}
-	else if(c == (p->end))
-	{
-		return 1;
-	}
-	else if(c == (EOF))
-	{
-		return 2;
-	}
-	else if(c == '\n')
-	{
-		return 2;
-	}
-	else if(c == '\0')
-	{
-		return 2;
-	}
-	return 0;
-}
-
-char* convertInt(int val, int base){
-	
-	static char buf[32] = {0};
-	
-	int i = 30;
-	
-	for(; val && i ; --i, val /= base)
-	{
-		buf[i] = "0123456789abcdef"[val % base];
-	}
-	
-	return &buf[i+1];
-	
-}
-
-int numdigits(int n)
-{
-	return log10(n) + 1;
 }
 
 int checkSyntax(char *fname, char *array, int *length)
 {
-	NFILE bf;
-	bf.name = fname;
-
-	BFCMDS bfcmds;
-	BFCMDS *cmdPtr = &bfcmds;
-	bfcmds.ptrInc = '>';
-	bfcmds.ptrDec = '<';
-	bfcmds.inc = '+';
-	bfcmds.dec = '-';
-	bfcmds.out = '.';
-	bfcmds.in = ',';
-	bfcmds.begin = '[';
-	bfcmds.end = ']';
+	NFILE brainfuckFile;
+	brainfuckFile.name = fname;
 
 	char c = '\0';
 	int byteCount = 0;
@@ -183,17 +93,17 @@ int checkSyntax(char *fname, char *array, int *length)
 	int skipCount = 0;
 	int openBraceCount = 0, closedBraceCount = 0;
 
-	if((bf.fptr = fopen(fname, "r")))
+	if((brainfuckFile.fptr = fopen(fname, "r")))
 	{
-		printf("File Opened: %s\n\n", bf.name);
+		printf("File Opened: %s\n\n", brainfuckFile.name);
 
 		printf("File Contents:\n");
 		printf("______________\n\n");
 
-		while(!feof(bf.fptr))
+		while(!feof(brainfuckFile.fptr))
 		{
-			c = fgetc(bf.fptr);
-			int check = checkChar(cmdPtr, c);
+			c = fgetc(brainfuckFile.fptr);
+			int check = checkChar(c);
 			if(check == 1)
 			{
 				printf("%c", c); //DEBUG
@@ -207,11 +117,11 @@ int checkSyntax(char *fname, char *array, int *length)
 				}
 
 				array[symbolCount] = c;
-				symbolCount++;
+				++symbolCount;
 			}
 			else if(check == 2)
 			{
-				skipCount++;
+				++skipCount;
 			}
 			else
 			{
@@ -220,13 +130,13 @@ int checkSyntax(char *fname, char *array, int *length)
 				printf("Compiler exiting.\n");
 				return EXIT_FAILURE;
 			}
-			byteCount++;
+			++byteCount;
 		}
-		fclose(bf.fptr);
+		fclose(brainfuckFile.fptr);
 	}
 	else
 	{
-		printf("\n\n[Error: could not open file %s]\n", bf.name);
+		printf("\n\n[Error: could not open file %s]\n", brainfuckFile.name);
 		printf("Compiler exiting.\n");
 		return EXIT_FAILURE;
 	}
@@ -239,12 +149,6 @@ int checkSyntax(char *fname, char *array, int *length)
 			int i = closedBraceCount - openBraceCount;
 			printf("Expected %d more opening brace(s).]\n", i);
 		}
-		//NOTE(alex) Do we actually want to ask about open braces?
-		/*else if(openBraceCount > closedBraceCount)
-		{
-			int i = openBraceCount - closedBraceCount;
-			printf("Expected %d more closing brace(s).]", i);
-		}*/
 		printf("Compiler exiting\n");
 		return EXIT_FAILURE;
 	}
@@ -254,81 +158,25 @@ int checkSyntax(char *fname, char *array, int *length)
 	return EXIT_SUCCESS;
 }
 
-void remapToC(CCMDS *cp, BFCMDS *bp, char c, int number, char *rmap)
+void remapToC(char c, char *rmap)
 {
-	if(c == (bp->ptrInc))
-	{	
-		char *i = convertInt(number, 10);
-		strcpy(rmap, cp->ptrInc);
-		strcat(rmap, i);
-		strcat(rmap, ";");
-		return;
-	}
-	else if (c == (bp->ptrDec))
+	switch(c)
 	{
-		char *i = convertInt(number, 10);
-		strcpy(rmap, cp->ptrDec);
-		strcat(rmap, i);
-		strcat(rmap, ";");
-		return;
+		case '>' : strcpy(rmap, "++ptr;"); 			return;
+		case '<' : strcpy(rmap, "--ptr;"); 			return;
+		case '+' : strcpy(rmap, "++*ptr;");			return;
+		case '-' : strcpy(rmap, "--*ptr;");			return;
+		case '.' : strcpy(rmap, "putchar(*ptr);");	return;
+		case ',' : strcpy(rmap, "*ptr=getchar();"); return;
+		case '[' : strcpy(rmap, "while(*ptr) {");	return;
+		case ']' : strcpy(rmap, "}");				return;
+		default  : strcpy(rmap, "NULL");
+
 	}
-	else if(c == (bp->inc))
-	{
-		strcpy(rmap, cp->inc);
-		return;
-	}
-	else if(c == (bp->dec))
-	{
-		strcpy(rmap, cp->dec);
-		return;
-	}
-	else if(c == (bp->out))
-	{
-		strcpy(rmap, cp->out);
-		return;
-	}
-	else if(c == (bp->in))
-	{
-		strcpy(rmap, cp->in);
-		return;
-	}
-	else if(c == (bp->begin))
-	{
-		strcpy(rmap, cp->begin);
-		return;
-	}
-	else if(c == (bp->end))
-	{
-		strcpy(rmap, cp->end);
-		return;
-	}
-	rmap =  "NULL";
 }
 
 int build(char *array, int length, char *fname)
 {
-	CCMDS ccmds;
-	CCMDS *ccmdPtr = &ccmds;
-	ccmds.ptrInc = "ptr+=";
-	ccmds.ptrDec = "ptr-=";
-	ccmds.inc = "++*ptr;";
-	ccmds.dec = "++*ptr;";
-	ccmds.out = "putchar(*ptr);";
-	ccmds.in = "*ptr=getchar();";
-	ccmds.begin = "while(*ptr) {";
-	ccmds.end = "}";
-
-	BFCMDS bfcmds;
-	BFCMDS *bfcmdsPtr = &bfcmds;
-	bfcmds.ptrInc = '>';
-	bfcmds.ptrDec = '<';
-	bfcmds.inc = '+';
-	bfcmds.dec = '-';
-	bfcmds.out = '.';
-	bfcmds.in = ',';
-	bfcmds.begin = '[';
-	bfcmds.end = ']';
-
 	NFILE cfile;
 	cfile.name = fname;
 
@@ -350,41 +198,13 @@ int build(char *array, int length, char *fname)
 		for(int i = 0; i < length-1; i++)
 		{
 			char c = array[i];
-			//If the current character is +
-			//Keep moving down the array to chain adds together
-
-			if(c == '>')
-			{
-				while(c == '>')
-				{
-					if(i < length)
-					{
-						++number;
-						c = array[++i];
-					}
-				}
-				c = array[--i];
-			}
-			else if(c == '<')
-			{
-				while(c == '<')
-				{
-					if(i < length)
-					{
-						++number;
-						c = array[++i];
-					}
-				}
-				c = array[--i];
-			}
-
-			char remap[100];
-			remapToC(ccmdPtr, bfcmdsPtr, c, number, (char *)remap);
+			char remap[16];
+			remapToC(c, (char *)remap);
 			number = 0; //Reset the add counter
 
 			if(strcmp(remap, "NULL"))
 			{
-				if(!strcmp(remap, ccmds.end) && tabdepth != 1)
+				if(!strcmp(remap, "}") && tabdepth != 1)
 				{
 					tabdepth--;
 				}
@@ -398,7 +218,7 @@ int build(char *array, int length, char *fname)
 				fprintf(cfile.fptr, "\n");
 			}
 
-			if(!strcmp(remap, ccmds.begin))
+			if(!strcmp(remap, "while(*ptr) {"))
 			{
 				tabdepth++;
 			}
@@ -444,7 +264,7 @@ int main(int argc, char **argv)
 		if(build(bfcPtr, bfcommandLength, cbuildFileName) == EXIT_SUCCESS)
 		{
 			//TODO(alex) Fork to compile
-			system("gcc build.c -o c.exe");
+			//system("gcc build.c -o c.exe");
 			//TODO(alex) Wait until compile sucess and Run
 		}
 	}
