@@ -56,6 +56,11 @@ Brainfuck  		|		C
 #include <stdio.h>
 #include <string.h>
 
+ 		//IMPORTANT
+ 		//NOTE
+ 		//TODO
+ 		//DEBUG
+
 typedef struct
 {
 	FILE *fptr;
@@ -67,18 +72,18 @@ int checkChar(char c)
 
 	switch(c)
 	{
-		case '>' : return 1;
-		case '<' : return 1;
-		case '+' : return 1;
-		case '-' : return 1;
-		case '.' : return 1;
-		case ',' : return 1;
-		case '[' : return 1;
-		case ']' : return 1;
-		case EOF : return 2;
+		case '>'  : return 1;
+		case '<'  : return 1;
+		case '+'  : return 1;
+		case '-'  : return 1;
+		case '.'  : return 1;
+		case ','  : return 1;
+		case '['  : return 1;
+		case ']'  : return 1;
+		case EOF  : return 2;
 		case '\n' : return 2;
 		case '\0' : return 2;
-		default : return 0;
+		default   : return 0;
 	}
 }
 
@@ -193,7 +198,7 @@ int build(char *array, int length, char *fname)
 		fprintf(cfile.fptr, "\tchar *ptr = array;\n\n");
 		fprintf(cfile.fptr, "\t//Beginning of code\n\n");
 
-		printf("bfcommandLength: %d\n", length);
+		//printf("DEBUG: fcommandLength: %d\n", length);
 
 		for(int i = 0; i < length-1; i++)
 		{
@@ -263,9 +268,9 @@ int main(int argc, char **argv)
 		printf("\n\nBuilding %d lines of C commands.\n", bfcommandLength);
 		if(build(bfcPtr, bfcommandLength, cbuildFileName) == EXIT_SUCCESS)
 		{
-			//TODO(alex) Fork to compile
+			//TODO(alex) Fork to compile(?)
 			//system("gcc build.c -o c.exe");
-			//TODO(alex) Wait until compile sucess and Run
+			//TODO(alex) Wait until compile sucess and run
 		}
 	}
 	else
