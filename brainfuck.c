@@ -52,24 +52,23 @@ Brainfuck  		|		C
  		- Run built C file
  */
 
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
- 		//IMPORTANT
- 		//NOTE
- 		//TODO
- 		//DEBUG
+#include <process.h>
+#include <windows.h>
 
 typedef struct
 {
 	FILE *fptr;
-	char *name;
+ 	char *name;
 } NFILE;
 
 int checkChar(char c)
 {
-
 	switch(c)
 	{
 		case '>'  : return 1;
@@ -176,7 +175,6 @@ void remapToC(char c, char *rmap)
 		case '[' : strcpy(rmap, "while(*ptr) {");	return;
 		case ']' : strcpy(rmap, "}");				return;
 		default  : strcpy(rmap, "NULL");
-
 	}
 }
 
@@ -245,14 +243,13 @@ int build(char *array, int length, char *fname)
 //TODO compile
 int compile()
 {
-	
 	return EXIT_SUCCESS;
 }
 
 //TODO run
 void run()
 {
-	
+
 }
 
 int main(int argc, char **argv)
@@ -260,17 +257,47 @@ int main(int argc, char **argv)
 	char *bfFileName = "helloworld.bf";
 	char cbuildFileName[] = "build.c";
 	char bfcommands[1048576] = {0}; //1MB
-	char *bfcPtr = bfcommands;
 	int bfcommandLength = 0;
+	int *buildStatus = 0;
 
-	if(checkSyntax(bfFileName, bfcPtr, &bfcommandLength) == EXIT_SUCCESS)
+	if(checkSyntax(bfFileName, (char *)bfcommands, &bfcommandLength) == EXIT_SUCCESS)
 	{
 		printf("\n\nBuilding %d lines of C commands.\n", bfcommandLength);
-		if(build(bfcPtr, bfcommandLength, cbuildFileName) == EXIT_SUCCESS)
+		if(build((char *)bfcommands, bfcommandLength, cbuildFileName) == EXIT_SUCCESS)
 		{
 			//TODO(alex) Fork to compile(?)
-			//system("gcc build.c -o c.exe");
-			//TODO(alex) Wait until compile sucess and run
+			NFILE cBuildFile;
+			cBuildFile.name = cbuildFileName;
+			if(cBuildFile.fptr = fopen(cBuildFile.name, "r"))
+			{
+				printf("Compiling file : %s : with command : gcc %s -o c.exe\n", cBuildFile.name, cBuildFile.name);
+				//system("\"C:\\cygwin64\\bin\\gcc.exe\"");
+				//system("gcc -g -Wall build.c"); //Compile & Link
+				//system("gcc -c -g -Wall build.c"); //Compile
+				//system("gcc -g -o c.exe build.o"); //Link
+				char gcc[] = "C:\\cygwin64\\bin\\gcc.exe";
+				HINSTANCE hRet = ShellExecute(
+								 HWND_DESKTOP,
+								 "open",
+								 gcc,
+								 "-g -Wall build.c",
+								 NULL,
+								 SW_HIDE);
+
+				if((long long)hRet <= 32)
+				{
+					MessageBox(HWND_DESKTOP, "Unable to start GCC", "", MB_OK);
+					return EXIT_FAILURE;
+				}
+				else
+				{
+
+				}
+			}
+			else
+			{
+				printf("Error: could not open file %s for compilation\n. Exiting.\n", cBuildFile.name);
+			}
 		}
 	}
 	else
@@ -278,6 +305,6 @@ int main(int argc, char **argv)
 		printf("Syntax check failed!\n");
 		return EXIT_FAILURE;
 	}
-	
+
 	return EXIT_SUCCESS;
 }
