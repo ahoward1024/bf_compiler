@@ -52,14 +52,16 @@ Brainfuck  		|		C
  		- Run built C file
  */
 
-#include <sys/types.h>
-#include <sys/wait.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <process.h>
 #include <windows.h>
+
+#ifdef _WIN32
+#define open(p, f, m) _open(p, f, m)
+#endif
 
 typedef struct
 {
@@ -97,7 +99,7 @@ int checkSyntax(char *fname, char *array, int *length)
 	int skipCount = 0;
 	int openBraceCount = 0, closedBraceCount = 0;
 
-	if((brainfuckFile.fptr = fopen(fname, "r")))
+	if((brainfuckFile.fptr = fopen(brainfuckFile.name, "r")))
 	{
 		printf("File Opened: %s\n\n", brainfuckFile.name);
 
@@ -236,20 +238,45 @@ int build(char *array, int length, char *fname)
 		printf("Compiler exiting.\n");
 		return EXIT_FAILURE;
 	}
-
+	fclose(cfile.fptr);
 	return EXIT_SUCCESS;
 }
 
-//TODO compile
 int compile()
 {
+	printf("Running gcc with command : gcc -g -Wall build.c -o build.exe\n");
+
+	FILE *compileOutput;
+	compileOutput = popen("gcc -g -Wall build.c -o build.exe 2>&1", "r");
+	char buffer[1024];
+
+	if(!compileOutput)
+	{
+		fprintf(stderr, "Running compiler failed! Fatal error. Exiting.\n");
+		return EXIT_FAILURE;
+	}
+	else
+	{
+		printf("Compilation completed. Status: ");
+		fgets(buffer, 256, compileOutput);
+		if(buffer[0] == '\0')
+		{
+			printf("sucessful\n\n");
+		}
+		else
+		{
+			printf("ERROR :\n\n");
+			puts(buffer);
+			return EXIT_FAILURE;
+		}
+	}
+
+	if(pclose(compileOutput) != 0)
+	{
+		fprintf(stderr, "Could not close pipe. Fatal error. Exiting\n");
+		return EXIT_FAILURE;
+	}
 	return EXIT_SUCCESS;
-}
-
-//TODO run
-void run()
-{
-
 }
 
 int main(int argc, char **argv)
@@ -265,33 +292,13 @@ int main(int argc, char **argv)
 		printf("\n\nBuilding %d lines of C commands.\n", bfcommandLength);
 		if(build((char *)bfcommands, bfcommandLength, cbuildFileName) == EXIT_SUCCESS)
 		{
-			//TODO(alex) Fork to compile(?)
 			NFILE cBuildFile;
 			cBuildFile.name = cbuildFileName;
 			if(cBuildFile.fptr = fopen(cBuildFile.name, "r"))
 			{
-				printf("Compiling file : %s : with command : gcc %s -o c.exe\n", cBuildFile.name, cBuildFile.name);
-				//system("\"C:\\cygwin64\\bin\\gcc.exe\"");
-				//system("gcc -g -Wall build.c"); //Compile & Link
-				//system("gcc -c -g -Wall build.c"); //Compile
-				//system("gcc -g -o c.exe build.o"); //Link
-				char gcc[] = "C:\\cygwin64\\bin\\gcc.exe";
-				HINSTANCE hRet = ShellExecute(
-								 HWND_DESKTOP,
-								 "open",
-								 gcc,
-								 "-g -Wall build.c",
-								 NULL,
-								 SW_HIDE);
-
-				if((long long)hRet <= 32)
+				if(!compile() == EXIT_SUCCESS)
 				{
-					MessageBox(HWND_DESKTOP, "Unable to start GCC", "", MB_OK);
 					return EXIT_FAILURE;
-				}
-				else
-				{
-
 				}
 			}
 			else
